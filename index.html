@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AFTERTRACE - 3D Survival Zombie Shooter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-DYTbyZHI.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DhLilbsI.css">
+</head>
+<body>
+  <!-- 3D WebGL Canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Screen-edge red damage flash vignette -->
+  <div id="damage-vignette"></div>
+
+  <!-- Screen-center Reticle: Small Simple Dot (•) -->
+  <div id="crosshair">
+    <div class="ch-dot"></div>
+    <div class="ch-hitmarker"></div>
+  </div>
+
+  <!-- Sniper Scope Optical Overlay (Active only when aiming with Sniper) -->
+  <div id="sniper-scope-overlay">
+    <div class="scope-lens"></div>
+    <div class="scope-cross-h"></div>
+    <div class="scope-cross-v"></div>
+    <div class="scope-circle"></div>
+  </div>
+
+  <!-- Wave banner alert in top-center -->
+  <div id="wave-banner">
+    <div id="wave-title">WAVE 1 INCOMING</div>
+    <div id="wave-subtitle">5 zombies inbound</div>
+  </div>
+
+  <!-- Green health restoration alert -->
+  <div id="healing-banner">+35 HEALTH</div>
+
+  <!-- Floating XP popup notification container -->
+  <div id="floating-xp-container" class="floating-xp-container"></div>
+
+  <!-- Level-Up & Weapon Unlock Banner -->
+  <div id="level-up-banner" class="level-up-banner" style="display: none;">
+    <div class="level-up-title">★ LEVEL UP! ★</div>
+    <div id="level-up-subtitle" class="level-up-subtitle">REACHED LEVEL 2</div>
+    <div id="level-up-unlock" class="level-up-unlock">UNLOCKED: MP5 TACTICAL (SMG)</div>
+  </div>
+
+  <!-- Weapon Locked Alert -->
+  <div id="weapon-locked-alert" class="weapon-locked-alert" style="display: none;">
+    <span class="lock-icon">🔒</span>
+    <span id="weapon-locked-text">LOCKED: Requires Level 2</span>
+  </div>
+
+  <!-- IN-GAME HUD (Cleanly arranged for Mobile & Desktop) -->
+  <div id="shooter-hud">
+    <!-- Desktop reload alert (Only shown when magazine is 0 and ammo reserve > 0) -->
+    <div id="desktop-reload-prompt" style="display: none;">PRESS [R] TO RELOAD</div>
+    <!-- Top-Left Area: Health Bar, Audio/Music Button, Aim Assist, Sensitivity -->
+    <div class="hud-top-left-row">
+      <div id="health-bar-container">
+        <div class="health-meta">
+          <span class="health-label">HEALTH</span>
+          <span id="health-number">100 / 100</span>
+        </div>
+        <div id="health-bar-track">
+          <div id="health-bar-fill" class="healthy"></div>
+        </div>
+      </div>
+
+      <!-- Music/Sound Button in top-left, easy to tap, non-overlapping -->
+      <button id="sound-toggle-btn" class="hud-music-btn" title="Toggle Sound & Music" aria-label="Toggle Audio">
+        <span class="music-icon">🔊</span>
+      </button>
+
+      <!-- Aim assist toggle -->
+      <button id="aim-assist-toggle" class="hud-aim-btn active" title="Toggle Auto-Aim Assist">AIM: ON</button>
+
+      <!-- Sensitivity quick setting toggle -->
+      <button id="sensitivity-toggle" class="hud-sens-btn" title="Toggle Aim Sensitivity (0.8x / 1.0x / 1.4x / 1.8x)">SENS: 1.0x</button>
+
+      <!-- Fullscreen toggle button -->
+      <button id="fullscreen-toggle-btn" class="hud-fullscreen-btn" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Wave badge beneath health bar -->
+    <div id="wave-badge">WAVE 1 • 5 REMAINING</div>
+
+    <!-- TOP-CENTER LEVEL & PROGRESSION HUD (Non-blocking, centered, responsive) -->
+    <div id="player-progress-hud" class="top-center-progress-hud">
+      <div class="progress-meta">
+        <span id="player-level-badge" class="level-badge">LVL 1</span>
+        <span id="player-xp-counter" class="xp-counter">0 / 100 XP</span>
+      </div>
+      <div class="progress-bar-track">
+        <div id="player-xp-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Top-Right Area: Gun / Weapon Selection Button + Ammo Underneath -->
+    <div class="hud-top-right-weapon">
+      <button id="weapon-select-btn" class="weapon-touch-btn" aria-label="Switch Weapon" title="Tap to switch weapon (Keys 1-5 or Q)">
+        <span id="weapon-icon" class="weapon-btn-icon">⚡</span>
+        <div class="weapon-info">
+          <span id="weapon-name" class="weapon-btn-name">M4A1 ASSAULT</span>
+          <span class="weapon-switch-hint">TAP TO SWITCH</span>
+        </div>
+      </button>
+
+      <!-- Ammo Count Directly Underneath Weapon Button with Bullet Icon -->
+      <div id="ammo-display" class="ammo-touch-display">
+        <svg class="bullet-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 2C10 5 9 8 9 12v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7c0-4-1-7-3-10z"/>
+        </svg>
+        <span id="ammo-counter-text">30 / 120</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Touch Controls Layer -->
+  <div id="mobile-controls-layer">
+    <!-- Lower-Left: Virtual Movement Joystick -->
+    <div id="joystick-zone">
+      <div id="joystick-base">
+        <div id="joystick-thumb"></div>
+      </div>
+    </div>
+
+    <!-- Lower-Right Area: [ AIM ] [ RELOAD ]  [ JUMP ]  [ SHOOT ] -->
+    <div class="mobile-action-buttons">
+      <!-- Aim / Scope Button -->
+      <button id="mobile-aim-btn" aria-label="Aim Down Sights" title="Aim / Scope (Right Click)">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="8"/>
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        </svg>
+        <span class="btn-subtext">AIM</span>
+      </button>
+
+      <!-- Reload Button -->
+      <button id="mobile-reload-btn" aria-label="Reload Weapon" title="Reload (R)">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+        </svg>
+        <span class="btn-subtext">RELOAD</span>
+      </button>
+
+      <!-- Dedicated Jump Button -->
+      <button id="mobile-jump-btn" aria-label="Jump" title="Jump (Space)">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.8">
+          <path d="M12 19V5M5 12l7-7 7 7"/>
+        </svg>
+        <span class="btn-subtext">JUMP</span>
+      </button>
+
+      <!-- Large Circular Shoot Button with Comfortable Touch Target -->
+      <button id="mobile-fire-btn" aria-label="Fire Weapon" title="Fire Weapon">
+        <div class="fire-inner">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>
+            <circle cx="12" cy="12" r="2" fill="currentColor"/>
+          </svg>
+        </div>
+      </button>
+    </div>
+
+    <!-- First-time touch hint banner -->
+    <div id="mobile-control-hint">Left: Move • Right: Aim • Jump & Shoot Buttons</div>
+  </div>
+
+  <!-- Title / Start Screen -->
+  <div id="title-screen">
+    <div class="title-card">
+      <div class="title-logo">AFTERTRACE</div>
+      <div class="title-sub">ISLAND SURVIVOR</div>
+      <p class="title-desc">Third-person 3D survival-horror shooter. Choose your operator, equip your loadout, and endure the island zombie horde.</p>
+      
+      <!-- Operator / Character Selection (6 Unique Survivors) -->
+      <div class="character-section">
+        <div class="section-label">CHOOSE OPERATOR</div>
+        <div class="character-grid" id="character-grid">
+          <!-- Dynamically populated from characters.js -->
+        </div>
+        <div id="character-trait-info" class="character-trait-box">
+          <strong>Maya</strong> • <em>Balanced Operator</em> — Reliable all-around combat readiness and agility.
+        </div>
+      </div>
+
+      <!-- Weapon Arsenal & Level Unlocks -->
+      <div class="loadout-arsenal-section">
+        <div class="section-label">WEAPON ARSENAL & LEVEL UNLOCKS</div>
+        <div class="loadout-grid" id="loadout-grid">
+          <!-- Dynamically populated from progressionConfig.js / progressionManager -->
+        </div>
+      </div>
+
+      <!-- Aim Sensitivity Slider Setting -->
+      <div class="sensitivity-section">
+        <div class="section-label">AIM SENSITIVITY: <span id="sens-value-text">1.0x</span></div>
+        <div class="sens-slider-row">
+          <span class="sens-label-sub">SLOW</span>
+          <input type="range" id="sensitivity-slider" min="0.4" max="2.4" step="0.1" value="1.0" class="sens-range" aria-label="Aim Sensitivity">
+          <span class="sens-label-sub">FAST</span>
+        </div>
+      </div>
+
+      <!-- Difficulty Selection -->
+      <div class="difficulty-section">
+        <div class="section-label">SELECT DIFFICULTY</div>
+        <div class="difficulty-buttons">
+          <button type="button" class="diff-btn" data-diff="easy" id="diff-easy">
+            <span class="diff-badge">[ EASY ]</span>
+            <span class="diff-sub">Casual</span>
+          </button>
+          <button type="button" class="diff-btn active" data-diff="medium" id="diff-medium">
+            <span class="diff-badge">[ MEDIUM ]</span>
+            <span class="diff-sub">Balanced</span>
+          </button>
+          <button type="button" class="diff-btn" data-diff="hard" id="diff-hard">
+            <span class="diff-badge">[ HARD ]</span>
+            <span class="diff-sub">Nightmare</span>
+          </button>
+        </div>
+        <div id="difficulty-description">Classic zombie wave survival. Requires good aim and movement.</div>
+      </div>
+
+      <!-- Controls Guide -->
+      <div class="control-guides">
+        <div class="guide-box">
+          <strong>DESKTOP</strong>
+          <span>WASD: Move • Mouse: Aim • Left Click: Shoot • Space: Jump • 1-5 / Q: Guns • R: Reload</span>
+        </div>
+        <div class="guide-box">
+          <strong>MOBILE</strong>
+          <span>Left Stick: Move • Right Drag: Aim • Jump Button • Shoot Button • Tap Gun (Top-Right): Switch</span>
+        </div>
+      </div>
+
+      <!-- Story Scenario Preview & Selection Trigger (60 Starting Story Options) -->
+      <div class="story-premise-section">
+        <div class="section-label">CHOOSE YOUR STORY (60 STARTING PREMISES)</div>
+        <div id="selected-story-preview" class="selected-story-preview-card">
+          <div class="preview-badge-row">
+            <span class="preview-num-badge" id="preview-story-num">01</span>
+            <span class="preview-tag-badge" id="preview-story-tag">MYSTERY • RADIO</span>
+          </div>
+          <div class="preview-title" id="preview-story-title">THE LAST RADIO SIGNAL</div>
+          <div class="preview-desc" id="preview-story-desc">"A weak transmission appears on a frequency that should have been silent."</div>
+          <button type="button" id="browse-stories-btn" class="browse-stories-btn">CHOOSE FROM 60 STORIES</button>
+        </div>
+      </div>
+
+      <!-- Developer Debug Tools -->
+      <div class="debug-tools-bar">
+        <div class="debug-title">⚙ DEV PROGRESSION & STORY DEBUG (F9 / ~)</div>
+        <div class="debug-buttons-row">
+          <button type="button" class="debug-btn" id="dbg-add-xp">+100 XP</button>
+          <button type="button" class="debug-btn" id="dbg-level-up">LEVEL UP</button>
+          <button type="button" class="debug-btn" id="dbg-story-debug-toggle">STORY DEBUG</button>
+          <button type="button" class="debug-btn" id="dbg-reset-prog">RESET PROGRESS</button>
+        </div>
+      </div>
+
+      <button id="start-game-btn">START SURVIVAL</button>
+    </div>
+  </div>
+
+  <!-- 60 Starting Stories Selection Screen (Cinematic Modal) -->
+  <div id="story-selection-modal" class="story-selection-overlay" style="display: none;">
+    <div class="story-selection-container">
+      <div class="story-selection-header">
+        <div class="selection-title-col">
+          <div class="selection-eyebrow">CAMPAIGN INITIATION</div>
+          <div class="selection-title">CHOOSE YOUR STORY</div>
+          <div class="selection-sub">SELECT 1 OF 60 STARTING PREMISES • THE REST OF YOUR RUN IS RANDOMLY GENERATED BY THE STORY ENGINE</div>
+        </div>
+        <div class="selection-header-actions">
+          <button type="button" id="random-story-btn" class="random-story-btn" title="Randomly pick a starting premise">🎲 RANDOM STORY</button>
+          <button type="button" id="close-story-selection-btn" class="close-selection-btn" title="Close story selector">✕</button>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills and Search -->
+      <div class="story-filter-row">
+        <input type="text" id="story-search-input" class="story-search-box" placeholder="🔍 Search stories by title, keyword, or atmosphere...">
+        <div class="filter-chips" id="story-filter-chips">
+          <button type="button" class="filter-chip active" data-filter="all">ALL (60)</button>
+          <button type="button" class="filter-chip" data-filter="radio">📻 RADIO</button>
+          <button type="button" class="filter-chip" data-filter="mystery">🔍 MYSTERY</button>
+          <button type="button" class="filter-chip" data-filter="exploration">🗺️ EXPLORATION</button>
+          <button type="button" class="filter-chip" data-filter="survivor">👥 SURVIVORS</button>
+          <button type="button" class="filter-chip" data-filter="power">⚡ POWER</button>
+          <button type="button" class="filter-chip" data-filter="medical">🏥 MEDICAL</button>
+          <button type="button" class="filter-chip" data-filter="military">🛡️ MILITARY</button>
+        </div>
+      </div>
+
+      <!-- 60 Story Cards Grid -->
+      <div class="stories-scroll-area">
+        <div class="stories-grid" id="stories-grid-container">
+          <!-- Dynamically populated from startingStories.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Story Cinematic & Event Overlay Modal -->
+  <div id="story-intro-modal" class="story-overlay" style="display: none;">
+    <div class="story-card">
+      <div class="story-header">
+        <div class="story-header-left">
+          <span class="story-signal-dot"></span>
+          <span class="story-badge" id="story-header-badge">SECTOR 4 • TRANSMISSION DETECTED</span>
+        </div>
+        <div class="story-header-right" style="display: flex; gap: 8px; align-items: center;">
+          <button id="tts-voice-toggle-btn" class="tts-toggle-btn" title="Toggle Read-Aloud Voice Narration">
+            <span class="tts-icon">🔊</span>
+            <span class="tts-text">VOICE: ON</span>
+          </button>
+          <button id="skip-story-btn" class="skip-btn" title="Skip directly to wave survival" aria-label="Skip Story">SKIP [ESC]</button>
+        </div>
+      </div>
+
+      <div class="story-chapter-title" id="story-modal-title">THE LAST RADIO SIGNAL</div>
+      <div class="story-location-tag" id="story-location-tag">Location: Sector 4 • Time: 18:42 Sunset • Status: Active</div>
+
+      <!-- Hero Character + Story Body Layout -->
+      <div class="story-content-layout">
+        <div class="story-hero-portrait-col">
+          <img src="/assets/character.png" alt="Main Character Hero" class="story-hero-portrait-img">
+          <div class="hero-callsign-badge">PROTAGONIST • SURVIVOR</div>
+        </div>
+
+        <div class="story-text-column">
+          <!-- Narrative Text Container -->
+          <div class="story-body" id="story-body-content">
+            <!-- Dynamic narrative text lines -->
+          </div>
+
+          <!-- Gameplay Reward & Intel Tag -->
+          <div id="story-reward-badge" class="story-reward-badge" style="display: none;">
+            <span class="reward-icon">⚡</span>
+            <span id="story-reward-text">+40 XP • NARRATIVE PROGRESSION</span>
+          </div>
+
+          <!-- Interactive Tactical Decision Choices (Optional Dialogue) -->
+          <div id="story-choices" class="story-choices-container" style="display: none;">
+            <div class="choice-prompt" id="story-choice-prompt">CHOOSE YOUR TACTICAL ACTION:</div>
+            <div class="choice-buttons-row" id="story-choice-buttons">
+              <!-- Dynamically populated buttons -->
+            </div>
+          </div>
+
+          <!-- Primary Modal Action Button -->
+          <div class="story-action-footer">
+            <button id="commence-survival-btn" class="commence-btn">COMMENCE SURVIVAL [ENTER]</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over / Victory Screen -->
+  <div id="game-over-screen">
+    <div class="game-over-card">
+      <div id="game-over-title">YOU DIDN'T MAKE IT</div>
+      <div id="game-over-stats"></div>
+      <button id="retry-btn">Try again</button>
+    </div>
+  </div>
+
+  <!-- Campaign Debriefing & Personalized Replay Dossier Modal -->
+  <div id="campaign-debriefing-modal" class="campaign-debriefing-modal" style="display: none;">
+    <div class="debriefing-card">
+      <div class="debriefing-header">
+        <div class="debriefing-title">MISSION DEBRIEFING</div>
+        <div class="debriefing-sub">AFTERTRACE SECTOR 4 SURVIVOR DOSSIER</div>
+      </div>
+
+      <!-- Starting Premise & Run Seed Badges -->
+      <div class="debriefing-meta-row">
+        <span class="debrief-badge" id="debrief-start-story-badge">STARTING PREMISE: 01 — THE LAST RADIO SIGNAL</span>
+        <span class="debrief-badge seed" id="debrief-seed-badge">SEED: RUN-84920</span>
+      </div>
+
+      <!-- Ending Archetype Title -->
+      <div class="debrief-ending-title" id="debrief-ending-title">EXTRACTION CONFIRMED: THE RESCUE HELO</div>
+      
+      <!-- Stats Grid -->
+      <div class="debriefing-stats-grid">
+        <div class="debriefing-stat-box">
+          <div class="stat-box-label">Survivor Archetype</div>
+          <div id="debrief-archetype" class="stat-box-val">Tactical Survivor</div>
+        </div>
+        <div class="debriefing-stat-box">
+          <div class="stat-box-label">Final Level & XP</div>
+          <div id="debrief-level-xp" class="stat-box-val">Level 5 • 850 XP</div>
+        </div>
+        <div class="debriefing-stat-box">
+          <div class="stat-box-label">Zombies Neutralized</div>
+          <div id="debrief-kills" class="stat-box-val">68 Neutralized</div>
+        </div>
+        <div class="debriefing-stat-box">
+          <div class="stat-box-label">Events Experienced</div>
+          <div id="debrief-events-count" class="stat-box-val">5 Narrative Checkpoints</div>
+        </div>
+      </div>
+
+      <!-- Personalized Epilogue Summary Narrative -->
+      <div class="debriefing-narrative-summary">
+        <div id="debrief-epilogue-text" class="debrief-epilogue-text"></div>
+      </div>
+
+      <!-- Unique Path Notice -->
+      <div class="debrief-unique-note">
+        ★ This story path was unique to this run.
+      </div>
+
+      <button id="debrief-continue-btn" class="commence-btn">CONTINUE TO NEXT SURVIVAL RUN</button>
+    </div>
+  </div>
+
+  <!-- Developer Story Engine Debug Panel -->
+  <div id="story-debug-panel" class="story-debug-panel" style="display: none;">
+    <div class="debug-panel-header">
+      <span>⚙ STORY ENGINE DEBUG (F9 / ~)</span>
+      <button type="button" id="close-story-debug-btn" class="debug-close-btn">✕</button>
+    </div>
+    <div class="debug-panel-content">
+      <div class="debug-info-row"><strong>Run Seed:</strong> <span id="dbg-seed">-</span></div>
+      <div class="debug-info-row"><strong>Starting Story:</strong> <span id="dbg-start-story">-</span></div>
+      <div class="debug-info-row"><strong>Current Event:</strong> <span id="dbg-curr-event">-</span></div>
+      <div class="debug-info-row"><strong>Visited Events:</strong> <span id="dbg-visited">-</span></div>
+      <div class="debug-info-row"><strong>Active Story Tags:</strong> <span id="dbg-tags">-</span></div>
+      <div class="debug-info-row"><strong>State Flags:</strong> <span id="dbg-state-flags">-</span></div>
+      <div class="debug-btn-grid">
+        <button type="button" id="dbg-roll-event-btn" class="dbg-action-btn">ROLL NEXT EVENT</button>
+        <button type="button" id="dbg-new-seed-btn" class="dbg-action-btn">NEW RANDOM SEED</button>
+        <button type="button" id="dbg-force-ending-btn" class="dbg-action-btn">FORCE ENDING</button>
+        <button type="button" id="dbg-reset-story-btn" class="dbg-action-btn">RESET STORY</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
